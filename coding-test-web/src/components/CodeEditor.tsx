@@ -74,7 +74,6 @@ export default function CodeEditor({
             horizontalScrollbarSize: 8,
           },
           padding: { top: 12, bottom: 12 },
-          placeholder,
         }}
       />
     </div>

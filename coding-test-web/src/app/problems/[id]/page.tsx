@@ -74,6 +74,7 @@ export default function ProblemDetailPage() {
     setRunning(true);
     setRunOutput(null);
     try {
+      if (!pyodideReady) await loadPyodide();
       const { executeCode } = await import("@/lib/test-runner");
       const res = await executeCode(userCode);
       if (res.error) {
@@ -101,6 +102,7 @@ export default function ProblemDetailPage() {
     setRunOutput(null);
 
     try {
+      if (!pyodideReady) await loadPyodide();
       const { runTestCases } = await import("@/lib/test-runner");
       const { gradeByTestResults } = await import("@/lib/grading");
 
@@ -246,14 +248,14 @@ export default function ProblemDetailPage() {
       <div className="flex gap-3">
         <button
           onClick={handleRun}
-          disabled={running || !userCode.trim() || !pyodideReady}
+          disabled={running || !userCode.trim()}
           className="flex-1 rounded-xl border border-gray-600 py-4 text-lg font-bold text-white transition-all hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {running ? "실행 중..." : "▶ 실행하기"}
+          {running ? "실행 중..." : pyodideLoading ? "⏳ 엔진 로딩 중..." : "▶ 실행하기"}
         </button>
         <button
           onClick={handleGrade}
-          disabled={grading || !userCode.trim() || !pyodideReady || !problem.test_cases}
+          disabled={grading || !userCode.trim() || !problem.test_cases}
           className="flex-1 rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {grading ? "채점 중..." : "채점하기"}
