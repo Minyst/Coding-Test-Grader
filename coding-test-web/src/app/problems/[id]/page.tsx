@@ -201,36 +201,17 @@ export default function ProblemDetailPage() {
         </div>
       </div>
 
-      {/* Problem Description & Images */}
-      {(problem.description || problem.images) && (
-        <div className="rounded-xl border border-gray-800 p-5">
-          <h2 className="mb-2 text-lg font-semibold">문제</h2>
-          {problem.description && (
-            <p className="text-gray-300 whitespace-pre-wrap">{problem.description}</p>
-          )}
-          {problem.notes && (
-            <p className="mt-2 text-sm text-gray-500 italic">{problem.notes}</p>
-          )}
-          {problem.images && problem.images.length > 0 && (
-            <div className="mt-4 space-y-3">
-              {problem.images.map((url, i) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt={`문제 이미지 ${i + 1}`}
-                  className="rounded-lg max-w-full border border-gray-700"
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Pyodide Loading Status */}
-      {pyodideLoading && (
-        <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 border border-blue-500/30 px-4 py-3">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
-          <span className="text-sm text-blue-400">Python 엔진 로딩 중...</span>
+      {/* Problem Images */}
+      {problem.images && problem.images.length > 0 && (
+        <div className="space-y-3">
+          {problem.images.map((url, i) => (
+            <img
+              key={i}
+              src={url}
+              alt={`문제 이미지 ${i + 1}`}
+              className="rounded-lg max-w-full border border-gray-700"
+            />
+          ))}
         </div>
       )}
 
@@ -249,9 +230,9 @@ export default function ProblemDetailPage() {
         <button
           onClick={handleRun}
           disabled={running || !userCode.trim()}
-          className="flex-1 rounded-xl border border-gray-600 py-4 text-lg font-bold text-white transition-all hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {running ? "실행 중..." : pyodideLoading ? "⏳ 엔진 로딩 중..." : "▶ 실행하기"}
+          {running ? "실행 중..." : "▶ 실행하기"}
         </button>
         <button
           onClick={handleGrade}
