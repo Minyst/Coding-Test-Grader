@@ -1,38 +1,40 @@
 "use client";
 
-import type { Change } from "diff";
+import type { TestResult } from "@/lib/types";
+import TestResults from "@/components/TestResults";
 import CodeBlock from "@/components/CodeBlock";
+import { useState } from "react";
 
 interface GradeResultProps {
-  similarity: number;
-  grade: "perfect" | "close" | "partial" | "wrong";
+  grade: "perfect" | "partial" | "wrong";
   message: string;
   emoji: string;
-  diff: Change[];
+  passedCount: number;
+  totalCount: number;
+  testResults: TestResult[];
   answerCode: string;
 }
 
 export default function GradeResult({
-  similarity,
   grade,
   message,
   emoji,
-  diff,
+  passedCount,
+  totalCount,
+  testResults,
   answerCode,
 }: GradeResultProps) {
-  const gradeColors = {
-    perfect: "from-green-500 to-emerald-500",
-    close: "from-blue-500 to-cyan-500",
-    partial: "from-yellow-500 to-orange-500",
-    wrong: "from-red-500 to-pink-500",
-  };
+  const [showAnswer, setShowAnswer] = useState(false);
 
   const bgColors = {
     perfect: "bg-green-500/10 border-green-500/30",
-    close: "bg-blue-500/10 border-blue-500/30",
     partial: "bg-yellow-500/10 border-yellow-500/30",
     wrong: "bg-red-500/10 border-red-500/30",
   };
+
+  const pct = totalCount > 0 ? Math.round((passedCount / totalCount) * 100) : 0;
+  const strokeColor =
+    grade === "perfect" ? "#22c55e" : grade === "partial" ? "#eab308" : "#ef4444";
 
   return (
     <div className="space-y-4">
@@ -41,7 +43,7 @@ export default function GradeResult({
         <div className="flex items-center justify-between">
           <div>
             <p className="text-4xl font-bold">
-              <span className="text-lg">{emoji}</span> {similarity}%
+              <span className="text-lg">{emoji}</span> {passedCount}/{totalCount}
             </p>
             <p className="mt-1 text-gray-300">{message}</p>
           </div>
@@ -56,62 +58,35 @@ export default function GradeResult({
                 cx="50" cy="50" r="40"
                 fill="none" strokeWidth="8"
                 strokeLinecap="round"
-                strokeDasharray={`${similarity * 2.51} 251`}
-                className={`bg-gradient-to-r ${gradeColors[grade]}`}
-                style={{ stroke: grade === "perfect" ? "#22c55e" : grade === "close" ? "#3b82f6" : grade === "partial" ? "#eab308" : "#ef4444" }}
+                strokeDasharray={`${pct * 2.51} 251`}
+                style={{ stroke: strokeColor }}
               />
             </svg>
           </div>
         </div>
       </div>
 
-      {/* Diff View */}
-      {grade !== "perfect" && (
-        <div className="rounded-lg border border-gray-700 bg-gray-900 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-700 px-4 py-2">
-            <span className="text-sm font-medium text-gray-300">차이점 비교</span>
-            <div className="flex gap-3 text-xs">
-              <span className="text-red-400">- 정답에 있는 줄</span>
-              <span className="text-green-400">+ 내가 작성한 줄</span>
-            </div>
-          </div>
-          <pre className="max-h-[300px] overflow-auto p-4 text-sm">
-            {diff.map((change, i) => {
-              if (change.added) {
-                return (
-                  <span key={i} className="block bg-green-500/15 text-green-400">
-                    {change.value.split("\n").filter(Boolean).map((line, j) => (
-                      <span key={j} className="block">+ {line}</span>
-                    ))}
-                  </span>
-                );
-              }
-              if (change.removed) {
-                return (
-                  <span key={i} className="block bg-red-500/15 text-red-400">
-                    {change.value.split("\n").filter(Boolean).map((line, j) => (
-                      <span key={j} className="block">- {line}</span>
-                    ))}
-                  </span>
-                );
-              }
-              return (
-                <span key={i} className="block text-gray-400">
-                  {change.value.split("\n").filter(Boolean).map((line, j) => (
-                    <span key={j} className="block">  {line}</span>
-                  ))}
-                </span>
-              );
-            })}
-          </pre>
-        </div>
-      )}
+      {/* Test Results */}
+      <TestResults
+        results={testResults}
+        passedCount={passedCount}
+        totalCount={totalCount}
+      />
 
-      {/* Answer Code - auto show when not perfect */}
+      {/* Answer Code Toggle */}
       {grade !== "perfect" && (
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-300">정답 코드</p>
-          <CodeBlock code={answerCode} />
+          <button
+            onClick={() => setShowAnswer(!showAnswer)}
+            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            {showAnswer ? "정답 코드 숨기기 ▲" : "정답 코드 보기 ▼"}
+          </button>
+          {showAnswer && (
+            <div className="mt-2">
+              <CodeBlock code={answerCode} />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import CategoryStats from "@/components/CategoryStats";
 export default function HomePage() {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
+  const [solved, setSolved] = useState<Record<string, boolean>>({});
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,17 +28,22 @@ export default function HomePage() {
 
       const { data: subsData } = await supabase
         .from("submissions")
-        .select("problem_id, similarity_score")
+        .select("problem_id, similarity_score, is_correct")
         .order("created_at", { ascending: false });
 
       if (subsData) {
         const scoreMap: Record<string, number> = {};
+        const solvedMap: Record<string, boolean> = {};
         for (const sub of subsData) {
           if (!scoreMap[sub.problem_id]) {
             scoreMap[sub.problem_id] = sub.similarity_score;
           }
+          if (sub.is_correct) {
+            solvedMap[sub.problem_id] = true;
+          }
         }
         setScores(scoreMap);
+        setSolved(solvedMap);
       }
 
       setLoading(false);
@@ -48,7 +54,7 @@ export default function HomePage() {
 
   const stats = {
     total: problems.length,
-    solved: Object.values(scores).filter((s) => s >= 95).length,
+    solved: Object.keys(solved).length,
     attempted: Object.keys(scores).length,
   };
 
@@ -64,7 +70,7 @@ export default function HomePage() {
       />
 
       {/* Category Stats */}
-      {!loading && <CategoryStats problems={problems} scores={scores} />}
+      {!loading && <CategoryStats problems={problems} scores={scores} solved={solved} />}
 
       {/* Category Filter */}
       <CategoryFilter selected={category} onChange={setCategory} />
@@ -84,6 +90,7 @@ export default function HomePage() {
               key={problem.id}
               problem={problem}
               lastScore={scores[problem.id]}
+              isSolved={!!solved[problem.id]}
             />
           ))}
         </div>

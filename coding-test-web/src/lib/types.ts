@@ -1,3 +1,22 @@
+export interface TestCase {
+  input: string;
+  expected: string;
+}
+
+export interface TestCaseConfig {
+  function_name: string;
+  call_type: "function" | "class" | "script";
+  test_cases: TestCase[];
+}
+
+export interface TestResult {
+  input: string;
+  expected: string;
+  actual: string;
+  passed: boolean;
+  error?: string;
+}
+
 export interface Problem {
   id: string;
   title: string;
@@ -6,6 +25,9 @@ export interface Problem {
   code: string;
   description: string | null;
   notes: string | null;
+  test_cases: TestCaseConfig | null;
+  images: string[] | null;
+  notion_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -16,6 +38,9 @@ export interface Submission {
   user_code: string;
   similarity_score: number;
   is_correct: boolean;
+  passed_count: number;
+  total_count: number;
+  test_results: TestResult[] | null;
   created_at: string;
 }
 

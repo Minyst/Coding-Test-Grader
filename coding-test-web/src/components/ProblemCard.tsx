@@ -4,6 +4,7 @@ import type { Problem } from "@/lib/types";
 interface ProblemCardProps {
   problem: Problem;
   lastScore?: number | null;
+  isSolved?: boolean;
 }
 
 const difficultyColors: Record<string, string> = {
@@ -27,7 +28,7 @@ const categoryColors: Record<string, string> = {
   Graph: "bg-sky-500/15 text-sky-400",
 };
 
-export default function ProblemCard({ problem, lastScore }: ProblemCardProps) {
+export default function ProblemCard({ problem, lastScore, isSolved = false }: ProblemCardProps) {
   return (
     <Link
       href={`/problems/${problem.id}`}
@@ -37,15 +38,15 @@ export default function ProblemCard({ problem, lastScore }: ProblemCardProps) {
         <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
           {problem.title}
         </h3>
-        {lastScore !== null && lastScore !== undefined && (
+        {lastScore !== null && lastScore !== undefined ? (
           <span
             className={`text-sm font-bold ${
-              lastScore >= 95 ? "text-green-400" : lastScore >= 50 ? "text-yellow-400" : "text-red-400"
+              isSolved ? "text-green-400" : lastScore >= 50 ? "text-yellow-400" : "text-red-400"
             }`}
           >
-            {lastScore}%
+            {isSolved ? "✅ 통과" : `${lastScore}%`}
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
