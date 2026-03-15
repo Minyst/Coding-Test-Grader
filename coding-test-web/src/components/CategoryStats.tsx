@@ -26,7 +26,7 @@ export default function CategoryStats({ problems, scores }: CategoryStatsProps) 
   const totalAttempted = Object.keys(scores).length;
 
   return (
-    <div className="space-y-3">
+    <div className="rounded-xl bg-white p-5 space-y-4">
       <div className="flex items-center gap-4">
         <span className="text-sm font-semibold text-black">총 {totalProblems}문제</span>
         <span className="text-sm font-semibold text-black">{totalAttempted}회 시도</span>
@@ -40,7 +40,7 @@ export default function CategoryStats({ problems, scores }: CategoryStatsProps) 
                 <span className="text-black font-medium">{category}</span>
                 <span className="text-black font-medium">{solved}/{total}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-gray-300 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-green-500 transition-all duration-500"
                   style={{ width: `${pct}%` }}
