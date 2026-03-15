@@ -127,13 +127,13 @@ export default function ProblemDetailPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setIsEditing(true)}
-            className="rounded-lg bg-black border border-gray-700 px-4 py-2 text-sm text-white hover:border-gray-500 transition-colors"
+            className="rounded-lg bg-blue-200 border border-blue-300 px-4 py-2 text-sm text-blue-900 hover:bg-blue-300 hover:border-blue-400 transition-colors font-medium"
           >
             수정
           </button>
           <button
             onClick={handleDelete}
-            className="rounded-lg bg-black border border-gray-700 px-4 py-2 text-sm text-white hover:bg-red-400 hover:border-red-400 transition-colors"
+            className="rounded-lg bg-red-200 border border-red-300 px-4 py-2 text-sm text-red-900 hover:bg-red-300 hover:border-red-400 transition-colors font-medium"
           >
             삭제
           </button>
