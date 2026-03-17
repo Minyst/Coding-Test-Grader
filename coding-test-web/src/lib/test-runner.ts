@@ -155,14 +155,22 @@ export async function runTestCases(
   };
 }
 
-/** 출력 비교 정규화: 공백/따옴표 차이 무시 */
+/** 출력 비교 정규화: 출력값이 동일하면 정답 (공백, 포맷 차이 무시) */
 function normalizeOutput(output: string): string {
   return output
-    .replace(/'/g, '"') // Python repr은 작은따옴표를 쓰므로 통일
-    .replace(/\s+/g, " ") // 연속 공백 통일
-    .replace(/None/g, "null") // Python None ↔ null 통일
+    .replace(/'/g, '"')
+    .replace(/None/g, "null")
     .replace(/True/g, "true")
     .replace(/False/g, "false")
+    .replace(/\s*,\s*/g, ",")       // 콤마 주변 공백 제거
+    .replace(/\s*:\s*/g, ":")       // 콜론 주변 공백 제거
+    .replace(/\[\s+/g, "[")        // 괄호 안쪽 공백 제거
+    .replace(/\s+\]/g, "]")
+    .replace(/\(\s+/g, "(")
+    .replace(/\s+\)/g, ")")
+    .replace(/\{\s+/g, "{")
+    .replace(/\s+\}/g, "}")
+    .replace(/\s+/g, " ")          // 연속 공백 통일
     .trim();
 }
 

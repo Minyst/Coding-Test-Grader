@@ -17,8 +17,6 @@ export default function ProblemDetailPage() {
   const [userCode, setUserCode] = useState("");
   const [result, setResult] = useState<(GradeResultType & { testResults: TestResult[] }) | null>(null);
   const [grading, setGrading] = useState(false);
-  const [running, setRunning] = useState(false);
-  const [runOutput, setRunOutput] = useState<string | null>(null);
   const [pyodideReady, setPyodideReady] = useState(false);
   const [pyodideLoading, setPyodideLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -69,27 +67,6 @@ export default function ProblemDetailPage() {
     if (problem) loadPyodide();
   }, [problem, loadPyodide]);
 
-  // 코드 실행 (디버깅용)
-  const handleRun = async () => {
-    if (!userCode.trim()) return;
-    setRunning(true);
-    setRunOutput(null);
-    try {
-      if (!pyodideReady) await loadPyodide();
-      const { executeCode } = await import("@/lib/test-runner");
-      const res = await executeCode(userCode);
-      if (res.error) {
-        setRunOutput(`❌ 에러:\n${res.error}`);
-      } else {
-        setRunOutput(res.stdout || "(출력 없음)");
-      }
-    } catch {
-      setRunOutput("❌ 실행 중 오류가 발생했습니다.");
-    } finally {
-      setRunning(false);
-    }
-  };
-
   // 채점
   const handleGrade = async () => {
     if (!problem || !userCode.trim()) return;
@@ -100,7 +77,6 @@ export default function ProblemDetailPage() {
 
     setGrading(true);
     setResult(null);
-    setRunOutput(null);
 
     try {
       if (!pyodideReady) await loadPyodide();
@@ -223,31 +199,14 @@ export default function ProblemDetailPage() {
         />
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleRun}
-          disabled={running || !userCode.trim()}
-          className="flex-1 rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {running ? "실행 중..." : "▶ 실행하기"}
-        </button>
-        <button
-          onClick={handleGrade}
-          disabled={grading || !userCode.trim() || !problem.test_cases}
-          className="flex-1 rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {grading ? "채점 중..." : "채점하기"}
-        </button>
-      </div>
-
-      {/* Run Output */}
-      {runOutput !== null && (
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-400">실행 결과</p>
-          <pre className="text-sm text-green-300 font-mono whitespace-pre-wrap">{runOutput}</pre>
-        </div>
-      )}
+      {/* Grade Button */}
+      <button
+        onClick={handleGrade}
+        disabled={grading || !userCode.trim() || !problem.test_cases}
+        className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {grading ? "채점 중..." : "채점하기"}
+      </button>
 
       {/* Grade Result */}
       {result && (
@@ -259,7 +218,6 @@ export default function ProblemDetailPage() {
           totalCount={result.totalCount}
           testResults={result.testResults}
           answerCode={problem.code}
-          userCode={userCode}
         />
       )}
     </div>
