@@ -2,7 +2,7 @@
 
 import type { TestResult } from "@/lib/types";
 import TestResults from "@/components/TestResults";
-import CodeBlock from "@/components/CodeBlock";
+import CodeDiff from "@/components/CodeDiff";
 import { useState } from "react";
 
 interface GradeResultProps {
@@ -13,6 +13,7 @@ interface GradeResultProps {
   totalCount: number;
   testResults: TestResult[];
   answerCode: string;
+  userCode: string;
 }
 
 export default function GradeResult({
@@ -23,6 +24,7 @@ export default function GradeResult({
   totalCount,
   testResults,
   answerCode,
+  userCode,
 }: GradeResultProps) {
   const [showAnswer, setShowAnswer] = useState(false);
 
@@ -73,18 +75,18 @@ export default function GradeResult({
         totalCount={totalCount}
       />
 
-      {/* Answer Code Toggle */}
+      {/* Answer Code Diff Toggle */}
       {grade !== "perfect" && (
         <div>
           <button
             onClick={() => setShowAnswer(!showAnswer)}
             className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
           >
-            {showAnswer ? "정답 코드 숨기기 ▲" : "정답 코드 보기 ▼"}
+            {showAnswer ? "코드 비교 숨기기 ▲" : "정답 코드와 비교하기 ▼"}
           </button>
           {showAnswer && (
             <div className="mt-2">
-              <CodeBlock code={answerCode} />
+              <CodeDiff userCode={userCode} answerCode={answerCode} />
             </div>
           )}
         </div>

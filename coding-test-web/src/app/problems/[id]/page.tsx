@@ -8,6 +8,7 @@ import type { GradeResult as GradeResultType } from "@/lib/grading";
 import CodeEditor from "@/components/CodeEditor";
 import GradeResult from "@/components/GradeResult";
 import ProblemEditForm from "@/components/ProblemEditForm";
+import { getProblemImage } from "@/lib/problem-images";
 
 export default function ProblemDetailPage() {
   const params = useParams();
@@ -22,7 +23,6 @@ export default function ProblemDetailPage() {
   const [pyodideLoading, setPyodideLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [editForm, setEditForm] = useState({
     title: "", category: "", difficulty: "", code: "", description: "", notes: "",
   });
@@ -132,60 +132,6 @@ export default function ProblemDetailPage() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!problem || !e.target.files?.length) return;
-    setUploading(true);
-    try {
-      const supabase = createClient();
-      const newImages = [...(problem.images || [])];
-
-      for (const file of Array.from(e.target.files)) {
-        const safeName = problem.title.replace(/[^a-zA-Z0-9가-힣_-]/g, "_");
-        const ext = file.name.split(".").pop() || "png";
-        const filename = `${safeName}_${Date.now()}.${ext}`;
-        const path = `problem-images/${filename}`;
-
-        const { error } = await supabase.storage
-          .from("problems")
-          .upload(path, file, { upsert: true });
-
-        if (error) {
-          alert(`업로드 실패: ${error.message}`);
-          continue;
-        }
-
-        const { data: urlData } = supabase.storage
-          .from("problems")
-          .getPublicUrl(path);
-
-        newImages.push(urlData.publicUrl);
-      }
-
-      await supabase
-        .from("problems")
-        .update({ images: newImages })
-        .eq("id", problem.id);
-
-      setProblem({ ...problem, images: newImages });
-    } catch {
-      alert("이미지 업로드 중 오류가 발생했습니다.");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  const handleImageDelete = async (index: number) => {
-    if (!problem?.images || !confirm("이 이미지를 삭제하시겠습니까?")) return;
-    const supabase = createClient();
-    const newImages = problem.images.filter((_, i) => i !== index);
-    await supabase
-      .from("problems")
-      .update({ images: newImages.length > 0 ? newImages : null })
-      .eq("id", problem.id);
-    setProblem({ ...problem, images: newImages.length > 0 ? newImages : null });
-  };
-
   const handleDelete = async () => {
     if (!problem || !confirm("정말 삭제하시겠습니까?")) return;
     const supabase = createClient();
@@ -256,36 +202,16 @@ export default function ProblemDetailPage() {
         </div>
       </div>
 
-      {/* Problem Images */}
-      <div className="space-y-3">
-        {problem.images && problem.images.map((url, i) => (
-          <div key={i} className="relative group">
-            <img
-              src={url}
-              alt={`문제 이미지 ${i + 1}`}
-              className="rounded-lg max-w-full border border-gray-700"
-            />
-            <button
-              onClick={() => handleImageDelete(i)}
-              className="absolute top-2 right-2 rounded-full bg-red-500/80 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              삭제
-            </button>
-          </div>
-        ))}
-        <label className={`flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-700 py-6 cursor-pointer hover:border-gray-500 transition-colors ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
-          <span className="text-gray-400 text-sm">
-            {uploading ? "업로드 중..." : "+ 문제 이미지 추가"}
-          </span>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleImageUpload}
-            className="hidden"
+      {/* Problem Image */}
+      {getProblemImage(problem.title) && (
+        <div>
+          <img
+            src={getProblemImage(problem.title)!}
+            alt={`${problem.title} 문제`}
+            className="rounded-lg max-w-full border border-gray-700"
           />
-        </label>
-      </div>
+        </div>
+      )}
 
       {/* Code Editor */}
       <div>
@@ -333,6 +259,7 @@ export default function ProblemDetailPage() {
           totalCount={result.totalCount}
           testResults={result.testResults}
           answerCode={problem.code}
+          userCode={userCode}
         />
       )}
     </div>
