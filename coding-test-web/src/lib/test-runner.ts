@@ -91,6 +91,25 @@ def __smart_repr_inner(obj):
     return obj
 `;
 
+/** 유저가 정의한 함수를 자동 감지하는 Python 코드 */
+const FIND_USER_FUNCTION = `
+import types as __types
+def __find_user_function(expected_name):
+    # 1) 정확한 이름이 있으면 그대로 사용
+    if expected_name in dir() and callable(eval(expected_name)):
+        return eval(expected_name)
+    # 2) 없으면 유저가 정의한 함수 중 첫 번째를 사용
+    __user_fns = [
+        v for k, v in list(globals().items())
+        if isinstance(v, __types.FunctionType)
+        and not k.startswith('_')
+        and k not in ('list_to_tree','tree_to_list','list_to_linked','linked_to_list')
+    ]
+    if __user_fns:
+        return __user_fns[-1]
+    raise NameError(f"함수를 찾을 수 없습니다: {expected_name}")
+`;
+
 export interface RunResult {
   passed: boolean;
   testResults: TestResult[];
@@ -115,8 +134,8 @@ export async function runTestCases(
       // 클래스형: 유저 코드 정의 후 테스트 시퀀스 실행
       callCode = `${PYTHON_HELPERS}\n${userCode}\n${tc.input}`;
     } else {
-      // 함수형: 유저 코드 정의 후 함수 호출 → 결과 자동 직렬화
-      callCode = `${PYTHON_HELPERS}\n${userCode}\n__result = ${config.function_name}(${tc.input})\nprint(__smart_repr(__result))`;
+      // 함수형: 유저가 정의한 함수명을 자동 감지하여 호출
+      callCode = `${PYTHON_HELPERS}\n${userCode}\n${FIND_USER_FUNCTION}\n__fn = __find_user_function("${config.function_name}")\n__result = __fn(${tc.input})\nprint(__smart_repr(__result))`;
     }
 
     const result = await runPython(callCode, 10000);
