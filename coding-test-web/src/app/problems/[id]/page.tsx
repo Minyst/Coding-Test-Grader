@@ -7,7 +7,10 @@ import type { Problem, TestResult } from "@/lib/types";
 import type { GradeResult as GradeResultType } from "@/lib/grading";
 import CodeEditor from "@/components/CodeEditor";
 import GradeResult from "@/components/GradeResult";
+import TestResults from "@/components/TestResults";
 import ProblemEditForm from "@/components/ProblemEditForm";
+import CodeDiff from "@/components/CodeDiff";
+import CodeBlock from "@/components/CodeBlock";
 import { getProblemImage } from "@/lib/problem-images";
 
 export default function ProblemDetailPage() {
@@ -48,7 +51,6 @@ export default function ProblemDetailPage() {
       });
   }, [params.id]);
 
-  // Pyodide 사전 로드
   const loadPyodide = useCallback(async () => {
     if (pyodideReady || pyodideLoading) return;
     setPyodideLoading(true);
@@ -67,7 +69,6 @@ export default function ProblemDetailPage() {
     if (problem) loadPyodide();
   }, [problem, loadPyodide]);
 
-  // 채점
   const handleGrade = async () => {
     if (!problem || !userCode.trim()) return;
     if (!problem.test_cases) {
@@ -88,7 +89,6 @@ export default function ProblemDetailPage() {
 
       setResult({ ...gradeResult, testResults: runResult.testResults });
 
-      // 서버에 결과 저장
       await fetch("/api/grade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,6 +127,10 @@ export default function ProblemDetailPage() {
     setIsEditing(false);
   };
 
+  const handleRetry = () => {
+    setResult(null);
+  };
+
   if (loading) return <div className="py-20 text-center text-gray-500">로딩 중...</div>;
   if (!problem) return <div className="py-20 text-center text-gray-500">문제를 찾을 수 없습니다</div>;
 
@@ -143,7 +147,7 @@ export default function ProblemDetailPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -189,36 +193,97 @@ export default function ProblemDetailPage() {
         </div>
       )}
 
-      {/* Code Editor */}
-      <div>
-        <h2 className="mb-3 text-lg font-semibold">풀이 작성</h2>
-        <CodeEditor
-          value={userCode}
-          onChange={setUserCode}
-          placeholder="여기에 코드를 작성하고 채점하기를 누르세요..."
-        />
-      </div>
+      {/* ── 채점 전: 에디터 + 채점 버튼 ── */}
+      {!result ? (
+        <>
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">풀이 작성</h2>
+            <CodeEditor
+              value={userCode}
+              onChange={setUserCode}
+              placeholder="여기에 코드를 작성하고 채점하기를 누르세요..."
+            />
+          </div>
+          <button
+            onClick={handleGrade}
+            disabled={grading || !userCode.trim() || !problem.test_cases}
+            className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {grading ? "채점 중..." : "채점하기"}
+          </button>
+        </>
+      ) : (
+        /* ── 채점 후: 블록 쌓기 레이아웃 ── */
+        <div className="space-y-4">
 
-      {/* Grade Button */}
-      <button
-        onClick={handleGrade}
-        disabled={grading || !userCode.trim() || !problem.test_cases}
-        className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {grading ? "채점 중..." : "채점하기"}
-      </button>
+          {/* ▌1층: 채점 결과 스코어 카드 (풀 와이드) */}
+          <GradeResult
+            grade={result.grade}
+            message={result.message}
+            emoji={result.emoji}
+            passedCount={result.passedCount}
+            totalCount={result.totalCount}
+          />
 
-      {/* Grade Result */}
-      {result && (
-        <GradeResult
-          grade={result.grade}
-          message={result.message}
-          emoji={result.emoji}
-          passedCount={result.passedCount}
-          totalCount={result.totalCount}
-          testResults={result.testResults}
-          answerCode={problem.code}
-        />
+          {/* ▌2층: 내 코드 | 정답 코드/코드 비교 (좌우 균등 분할) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 왼쪽: 내 코드 */}
+            <div className="flex flex-col">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-300">내 코드</span>
+                <button
+                  onClick={handleRetry}
+                  className="rounded-md bg-gray-700/80 border border-gray-600 px-3 py-1 text-xs text-gray-300 hover:bg-gray-600 transition-colors"
+                >
+                  다시 풀기
+                </button>
+              </div>
+              <div className="flex-1 min-h-0">
+                <CodeEditor
+                  value={userCode}
+                  onChange={setUserCode}
+                  readOnly
+                  height="360px"
+                />
+              </div>
+            </div>
+
+            {/* 오른쪽: 정답이면 정답 코드 / 틀리면 코드 비교 */}
+            <div className="flex flex-col">
+              <div className="mb-2">
+                <span className="text-sm font-semibold text-gray-300">
+                  {result.grade === "perfect" ? "정답 코드" : "코드 비교 (내 코드 vs 정답)"}
+                </span>
+              </div>
+              <div className="flex-1 min-h-0">
+                {result.grade === "perfect" ? (
+                  <div className="h-[360px] overflow-auto rounded-lg border border-gray-700">
+                    <CodeBlock code={problem.code} />
+                  </div>
+                ) : (
+                  <div className="h-[360px] overflow-auto">
+                    <CodeDiff userCode={userCode} answerCode={problem.code} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ▌3층: 테스트 결과 상세 (풀 와이드, 가로 균등 그리드) */}
+          <TestResults
+            results={result.testResults}
+            passedCount={result.passedCount}
+            totalCount={result.totalCount}
+          />
+
+          {/* ▌4층: 다시 풀기 버튼 */}
+          <button
+            onClick={handleRetry}
+            className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500"
+          >
+            다시 풀기
+          </button>
+        </div>
       )}
     </div>
   );

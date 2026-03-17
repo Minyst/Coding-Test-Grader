@@ -1,18 +1,31 @@
 import { runPython } from "./pyodide-runner";
 import type { TestCaseConfig, TestResult } from "./types";
 
+/** 테스트 간 Python 네임스페이스 정리 (상태 오염 방지) */
+const NAMESPACE_CLEANUP = `
+for __k in list(globals()):
+    if not __k.startswith('_') and __k not in ('sys', 'io'):
+        try:
+            del globals()[__k]
+        except:
+            pass
+`;
+
 /** Python 헬퍼 코드: TreeNode, ListNode 등 자동 직렬화 */
 const PYTHON_HELPERS = `
 # === 자료구조 헬퍼 ===
 class TreeNode:
     def __init__(self, val=0, left=None, right=None):
         self.val = val
+        self.value = val
+        self.data = val
         self.left = left
         self.right = right
 
 class ListNode:
     def __init__(self, val=0, next=None):
         self.val = val
+        self.value = val
         self.next = next
 
 # 리스트 → 트리 변환
@@ -34,7 +47,7 @@ def list_to_tree(arr):
         i += 1
     return root
 
-# 트리 → 리스트 변환
+# 트리 → 리스트 변환 (.val 또는 .value 모두 지원)
 def tree_to_list(root):
     if not root:
         return []
@@ -43,7 +56,7 @@ def tree_to_list(root):
     while queue:
         node = queue.pop(0)
         if node:
-            result.append(node.val)
+            result.append(getattr(node, 'val', getattr(node, 'value', None)))
             queue.append(node.left)
             queue.append(node.right)
         else:
@@ -63,11 +76,11 @@ def list_to_linked(arr):
         curr = curr.next
     return head
 
-# 연결리스트 → 리스트 변환
+# 연결리스트 → 리스트 변환 (.val 또는 .value 모두 지원)
 def linked_to_list(head):
     result = []
     while head:
-        result.append(head.val)
+        result.append(getattr(head, 'val', getattr(head, 'value', None)))
         head = head.next
     return result
 
@@ -129,13 +142,15 @@ export async function runTestCases(
 
     if (config.call_type === "script") {
       // 스크립트형: 전체 코드 실행 후 print 출력 비교
-      callCode = `${PYTHON_HELPERS}\n${userCode}\n${tc.input}`;
+      // 테스트 입력에서 TreeNode/ListNode 클래스 재정의 제거 (PYTHON_HELPERS와 충돌 방지)
+      const processedInput = stripClassRedefinitions(tc.input);
+      callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${processedInput}`;
     } else if (config.call_type === "class") {
       // 클래스형: 유저 코드 정의 후 테스트 시퀀스 실행
-      callCode = `${PYTHON_HELPERS}\n${userCode}\n${tc.input}`;
+      callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${tc.input}`;
     } else {
       // 함수형: 유저가 정의한 함수명을 자동 감지하여 호출
-      callCode = `${PYTHON_HELPERS}\n${userCode}\n${FIND_USER_FUNCTION}\n__fn = __find_user_function("${config.function_name}")\n__result = __fn(${tc.input})\nprint(__smart_repr(__result))`;
+      callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${FIND_USER_FUNCTION}\n__fn = __find_user_function("${config.function_name}")\n__result = __fn(${tc.input})\nprint(__smart_repr(__result))`;
     }
 
     const result = await runPython(callCode, 10000);
@@ -172,6 +187,16 @@ export async function runTestCases(
     passedCount,
     totalCount,
   };
+}
+
+/** 테스트 입력에서 TreeNode/ListNode 클래스 재정의 제거 (PYTHON_HELPERS와 충돌 방지) */
+function stripClassRedefinitions(input: string): string {
+  // class TreeNode: ... (들여쓰기된 본문 전체 제거)
+  // class ListNode: ... (들여쓰기된 본문 전체 제거)
+  return input.replace(
+    /class\s+(TreeNode|ListNode)\s*.*?:\s*\n(?:\s+[^\n]*\n?)*/g,
+    ""
+  );
 }
 
 /** 출력 비교 정규화: 출력값이 동일하면 정답 (공백, 포맷 차이 무시) */
