@@ -1,6 +1,3 @@
 {
-  "buildCommand": "cd coding-test-web && npm install && npm run build",
-  "outputDirectory": "coding-test-web/.next",
-  "installCommand": "cd coding-test-web && npm install",
   "framework": "nextjs"
 }
