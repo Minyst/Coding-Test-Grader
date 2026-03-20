@@ -31,22 +31,14 @@ export default function RootLayout({
         <header className="pt-8 pb-4">
           <div className="mx-auto flex max-w-5xl items-center justify-between px-4">
             <Link href="/" className="text-3xl font-bold">
-              Coding Test
+              Simple Coding Test
             </Link>
-            <nav className="flex items-center gap-4">
-              <Link
-                href="/quiz"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 transition-colors"
-              >
-                Quiz
-              </Link>
-              <Link
-                href="/problems/new"
-                className="text-white text-sm font-medium hover:text-gray-300 transition-colors"
-              >
-                + 문제 추가
-              </Link>
-            </nav>
+            <Link
+              href="/quiz"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 transition-colors"
+            >
+              Quiz
+            </Link>
           </div>
         </header>
         <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
