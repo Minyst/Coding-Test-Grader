@@ -257,9 +257,12 @@ export default function ProblemDetailPage() {
               </div>
               <div className="flex-1 min-h-0">
                 {result.grade === "perfect" ? (
-                  <div className="h-[360px] overflow-auto rounded-lg border border-gray-700">
-                    <CodeBlock code={problem.code} />
-                  </div>
+                  <CodeEditor
+                    value={problem.code}
+                    onChange={() => {}}
+                    readOnly
+                    height="360px"
+                  />
                 ) : (
                   <div className="h-[360px] overflow-auto">
                     <CodeDiff userCode={userCode} answerCode={problem.code} />
