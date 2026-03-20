@@ -3,7 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Problem, TestResult } from "@/lib/types";
+import type { GradeResult as GradeResultType } from "@/lib/grading";
 import CodeEditor from "@/components/CodeEditor";
+import GradeResult from "@/components/GradeResult";
+import TestResults from "@/components/TestResults";
+import CodeDiff from "@/components/CodeDiff";
+import { getProblemImage } from "@/lib/problem-images";
 import {
   getTodayKey,
   getDailyResult,
@@ -20,7 +25,6 @@ type Tab = "quiz" | "calendar" | "wrong";
 
 export default function QuizPage() {
   const [tab, setTab] = useState<Tab>("quiz");
-  const [problems, setProblems] = useState<Problem[]>([]);
   const [quizProblems, setQuizProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayDone, setTodayDone] = useState(false);
@@ -29,7 +33,7 @@ export default function QuizPage() {
   // Quiz state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userCodes, setUserCodes] = useState<string[]>(["", "", ""]);
-  const [results, setResults] = useState<(boolean | null)[]>([null, null, null]);
+  const [gradeResults, setGradeResults] = useState<((GradeResultType & { testResults: TestResult[] }) | null)[]>([null, null, null]);
   const [grading, setGrading] = useState(false);
   const [quizFinished, setQuizFinished] = useState(false);
   const [pyodideReady, setPyodideReady] = useState(false);
@@ -51,7 +55,6 @@ export default function QuizPage() {
       .not("test_cases", "is", null)
       .then(({ data }) => {
         const all = data || [];
-        setProblems(all);
 
         const today = getTodayKey();
         const existing = getDailyResult(today);
@@ -59,7 +62,6 @@ export default function QuizPage() {
           setTodayDone(true);
           setTodayResult(existing);
         } else if (all.length >= 3) {
-          // 랜덤 3문제 선택
           const shuffled = [...all].sort(() => Math.random() - 0.5);
           setQuizProblems(shuffled.slice(0, 3));
         } else {
@@ -85,6 +87,10 @@ export default function QuizPage() {
     setPyodideReady(true);
   }, [pyodideReady]);
 
+  useEffect(() => {
+    if (quizProblems.length > 0) loadPyodide();
+  }, [quizProblems, loadPyodide]);
+
   const handleGradeOne = async (index: number) => {
     const problem = quizProblems[index];
     const code = userCodes[index];
@@ -94,32 +100,45 @@ export default function QuizPage() {
     try {
       if (!pyodideReady) await loadPyodide();
       const { runTestCases } = await import("@/lib/test-runner");
-      const runResult = await runTestCases(code, problem.test_cases);
-      const newResults = [...results];
-      newResults[index] = runResult.passed;
-      setResults(newResults);
+      const { gradeByTestResults } = await import("@/lib/grading");
 
-      // 마지막 문제까지 채점 완료 확인
-      const allDone = newResults.every((r) => r !== null);
-      if (allDone) {
-        finishQuiz(newResults as boolean[], code);
-      }
+      const runResult = await runTestCases(code, problem.test_cases);
+      const gradeResult = gradeByTestResults(runResult.testResults);
+
+      const newResults = [...gradeResults];
+      newResults[index] = { ...gradeResult, testResults: runResult.testResults };
+      setGradeResults(newResults);
     } catch {
-      const newResults = [...results];
-      newResults[index] = false;
-      setResults(newResults);
+      // 에러 시에도 결과 표시
+      const newResults = [...gradeResults];
+      newResults[index] = {
+        grade: "wrong",
+        message: "채점 중 오류가 발생했습니다.",
+        emoji: "💪",
+        passedCount: 0,
+        totalCount: 1,
+        isCorrect: false,
+        testResults: [],
+      };
+      setGradeResults(newResults);
     } finally {
       setGrading(false);
     }
   };
 
-  const finishQuiz = (finalResults: boolean[], _lastCode?: string) => {
+  const handleRetryOne = (index: number) => {
+    const newResults = [...gradeResults];
+    newResults[index] = null;
+    setGradeResults(newResults);
+  };
+
+  const finishQuiz = () => {
     const today = getTodayKey();
     const answers: QuizAnswer[] = quizProblems.map((p, i) => ({
       problemId: p.id,
       problemTitle: p.title,
       category: p.category,
-      correct: finalResults[i],
+      correct: gradeResults[i]?.grade === "perfect",
       userCode: userCodes[i],
       answerCode: p.code,
     }));
@@ -132,12 +151,6 @@ export default function QuizPage() {
     setTodayDone(true);
     setTodayResult(result);
     setQuizFinished(true);
-  };
-
-  const handleFinishQuiz = () => {
-    // 남은 미채점 문제는 오답 처리
-    const finalResults = results.map((r) => r === true);
-    finishQuiz(finalResults);
   };
 
   // Calendar helpers
@@ -154,6 +167,11 @@ export default function QuizPage() {
     if (calMonth === 12) { setCalYear(calYear + 1); setCalMonth(1); }
     else setCalMonth(calMonth + 1);
   };
+
+  const currentProblem = quizProblems[currentIndex];
+  const currentResult = gradeResults[currentIndex];
+  const gradedCount = gradeResults.filter((r) => r !== null).length;
+  const allGraded = gradedCount === quizProblems.length && quizProblems.length > 0;
 
   if (loading) return <div className="py-20 text-center text-gray-500">로딩 중...</div>;
 
@@ -178,10 +196,11 @@ export default function QuizPage() {
         ))}
       </div>
 
-      {/* Quiz Tab */}
+      {/* ════════════════ Quiz Tab ════════════════ */}
       {tab === "quiz" && (
         <div className="space-y-6">
           {todayDone && todayResult ? (
+            /* ── 오늘 퀴즈 완료 상태 ── */
             <div className="space-y-4">
               <div className="rounded-xl border border-gray-700 bg-gray-900 p-6 text-center">
                 <p className="text-xl font-bold">오늘의 퀴즈 완료!</p>
@@ -216,16 +235,16 @@ export default function QuizPage() {
             </div>
           ) : (
             <>
-              {/* Progress */}
+              {/* ── Progress indicator ── */}
               <div className="flex items-center gap-3">
-                {quizProblems.map((_, i) => (
+                {quizProblems.map((p, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentIndex(i)}
                     className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ${
-                      results[i] === true
+                      gradeResults[i]?.grade === "perfect"
                         ? "bg-green-600 text-white"
-                        : results[i] === false
+                        : gradeResults[i] !== null
                         ? "bg-red-600 text-white"
                         : currentIndex === i
                         ? "bg-blue-600 text-white"
@@ -236,89 +255,172 @@ export default function QuizPage() {
                   </button>
                 ))}
                 <span className="ml-auto text-sm text-gray-400">
-                  {results.filter((r) => r !== null).length} / 3 채점됨
+                  {gradedCount} / {quizProblems.length} 채점됨
                 </span>
               </div>
 
-              {/* Current Problem */}
-              {quizProblems[currentIndex] && (
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-gray-700 bg-gray-900 p-5">
-                    <h2 className="text-xl font-bold">{quizProblems[currentIndex].title}</h2>
-                    <div className="mt-2 flex gap-2">
-                      <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs text-blue-400">
-                        {quizProblems[currentIndex].category}
+              {/* ── 현재 문제 (기존 문제 페이지와 동일한 레이아웃) ── */}
+              {currentProblem && (
+                <div className="space-y-6">
+                  {/* Header */}
+                  <div>
+                    <h2 className="text-3xl font-bold">{currentProblem.title}</h2>
+                    <div className="mt-3 flex gap-2">
+                      <span className="rounded-full bg-blue-500/15 px-3 py-1 text-sm text-blue-400">
+                        {currentProblem.category}
                       </span>
-                      <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-xs text-yellow-400">
-                        {quizProblems[currentIndex].difficulty}
+                      <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-sm text-yellow-400">
+                        {currentProblem.difficulty}
                       </span>
                     </div>
-                    {quizProblems[currentIndex].description && (
-                      <p className="mt-3 text-sm text-gray-400">{quizProblems[currentIndex].description}</p>
+                    {currentProblem.description && (
+                      <p className="mt-3 text-sm text-gray-400">{currentProblem.description}</p>
                     )}
                   </div>
 
-                  <CodeEditor
-                    value={userCodes[currentIndex]}
-                    onChange={(v) => {
-                      const next = [...userCodes];
-                      next[currentIndex] = v;
-                      setUserCodes(next);
-                    }}
-                    placeholder="여기에 코드를 작성하세요..."
-                    readOnly={results[currentIndex] !== null}
-                  />
-
-                  {results[currentIndex] === null ? (
-                    <button
-                      onClick={() => handleGradeOne(currentIndex)}
-                      disabled={grading || !userCodes[currentIndex].trim()}
-                      className="w-full rounded-xl bg-black border border-gray-700 py-3 text-lg font-bold text-white hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      {grading ? "채점 중..." : "채점하기"}
-                    </button>
-                  ) : (
-                    <div
-                      className={`rounded-xl border p-4 text-center font-bold ${
-                        results[currentIndex] ? "border-green-700 bg-green-900/20 text-green-400" : "border-red-700 bg-red-900/20 text-red-400"
-                      }`}
-                    >
-                      {results[currentIndex] ? "정답입니다!" : "오답입니다"}
+                  {/* Problem Image */}
+                  {getProblemImage(currentProblem.title) && (
+                    <div>
+                      <img
+                        src={getProblemImage(currentProblem.title)!}
+                        alt={`${currentProblem.title} 문제`}
+                        className="rounded-lg max-w-full border border-gray-700"
+                      />
                     </div>
                   )}
 
-                  {/* Navigation */}
+                  {/* ── 채점 전: 에디터 + 채점 버튼 ── */}
+                  {!currentResult ? (
+                    <>
+                      <div>
+                        <h3 className="mb-3 text-lg font-semibold">풀이 작성</h3>
+                        <CodeEditor
+                          value={userCodes[currentIndex]}
+                          onChange={(v) => {
+                            const next = [...userCodes];
+                            next[currentIndex] = v;
+                            setUserCodes(next);
+                          }}
+                          placeholder="여기에 코드를 작성하고 채점하기를 누르세요..."
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleGradeOne(currentIndex)}
+                        disabled={grading || !userCodes[currentIndex].trim()}
+                        className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {grading ? "채점 중..." : "채점하기"}
+                      </button>
+                    </>
+                  ) : (
+                    /* ── 채점 후: 기존 문제 페이지와 동일한 블록 쌓기 레이아웃 ── */
+                    <div className="space-y-4">
+
+                      {/* 1층: 채점 결과 스코어 카드 */}
+                      <GradeResult
+                        grade={currentResult.grade}
+                        message={currentResult.message}
+                        emoji={currentResult.emoji}
+                        passedCount={currentResult.passedCount}
+                        totalCount={currentResult.totalCount}
+                      />
+
+                      {/* 2층: 내 코드 | 정답 코드 (좌우 균등 분할) */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* 왼쪽: 내 코드 */}
+                        <div className="flex flex-col">
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-300">내 코드</span>
+                            <button
+                              onClick={() => handleRetryOne(currentIndex)}
+                              className="rounded-md bg-gray-700/80 border border-gray-600 px-3 py-1 text-xs text-gray-300 hover:bg-gray-600 transition-colors"
+                            >
+                              다시 풀기
+                            </button>
+                          </div>
+                          <div className="flex-1 min-h-0">
+                            <CodeEditor
+                              value={userCodes[currentIndex]}
+                              onChange={() => {}}
+                              readOnly
+                              height="360px"
+                            />
+                          </div>
+                        </div>
+
+                        {/* 오른쪽: 정답이면 정답 코드 / 틀리면 코드 비교 */}
+                        <div className="flex flex-col">
+                          <div className="mb-2">
+                            <span className="text-sm font-semibold text-gray-300">
+                              {currentResult.grade === "perfect" ? "정답 코드" : "코드 비교 (내 코드 vs 정답)"}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-h-0">
+                            {currentResult.grade === "perfect" ? (
+                              <CodeEditor
+                                value={currentProblem.code}
+                                onChange={() => {}}
+                                readOnly
+                                height="360px"
+                              />
+                            ) : (
+                              <div className="h-[360px] overflow-auto">
+                                <CodeDiff userCode={userCodes[currentIndex]} answerCode={currentProblem.code} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3층: 테스트 결과 상세 */}
+                      <TestResults
+                        results={currentResult.testResults}
+                        passedCount={currentResult.passedCount}
+                        totalCount={currentResult.totalCount}
+                      />
+
+                      {/* 4층: 다시 풀기 */}
+                      <button
+                        onClick={() => handleRetryOne(currentIndex)}
+                        className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500"
+                      >
+                        다시 풀기
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ── Navigation ── */}
                   <div className="flex gap-3">
                     {currentIndex > 0 && (
                       <button
                         onClick={() => setCurrentIndex(currentIndex - 1)}
                         className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-700 transition-colors"
                       >
-                        이전 문제
+                        ← 이전 문제
                       </button>
                     )}
-                    {currentIndex < 2 && (
+                    {currentIndex < quizProblems.length - 1 && (
                       <button
                         onClick={() => setCurrentIndex(currentIndex + 1)}
                         className="flex-1 rounded-lg bg-gray-800 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-700 transition-colors"
                       >
-                        다음 문제
+                        다음 문제 →
                       </button>
                     )}
                   </div>
 
-                  {/* Finish button when all graded or want to finish early */}
-                  {results.every((r) => r !== null) && !quizFinished && (
+                  {/* Finish button */}
+                  {allGraded && !quizFinished && (
                     <button
-                      onClick={handleFinishQuiz}
-                      className="w-full rounded-xl bg-blue-600 py-3 text-lg font-bold text-white hover:bg-blue-500 transition-colors"
+                      onClick={finishQuiz}
+                      className="w-full rounded-xl bg-blue-600 py-4 text-lg font-bold text-white hover:bg-blue-500 transition-colors"
                     >
                       퀴즈 완료
                     </button>
                   )}
-                  {results.some((r) => r !== null) && !results.every((r) => r !== null) && (
+                  {gradedCount > 0 && !allGraded && (
                     <button
-                      onClick={handleFinishQuiz}
+                      onClick={finishQuiz}
                       className="w-full rounded-xl bg-gray-700 py-3 text-sm font-semibold text-gray-300 hover:bg-gray-600 transition-colors"
                     >
                       나머지 문제 건너뛰고 완료
@@ -331,7 +433,7 @@ export default function QuizPage() {
         </div>
       )}
 
-      {/* Calendar Tab */}
+      {/* ════════════════ Calendar Tab ════════════════ */}
       {tab === "calendar" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -380,7 +482,6 @@ export default function QuizPage() {
             })}
           </div>
 
-          {/* Selected date details */}
           <div className="rounded-xl border border-gray-700 bg-gray-900 p-4">
             <h3 className="text-sm font-semibold text-gray-400 mb-3">이번 달 기록</h3>
             {Object.keys(monthResults).length === 0 ? (
@@ -413,7 +514,7 @@ export default function QuizPage() {
         </div>
       )}
 
-      {/* Wrong Answers Tab */}
+      {/* ════════════════ Wrong Answers Tab ════════════════ */}
       {tab === "wrong" && (
         <div className="space-y-4">
           <h2 className="text-lg font-bold">오답노트</h2>
@@ -443,13 +544,13 @@ export default function QuizPage() {
                     <div className="border-t border-gray-700 p-4 space-y-3">
                       <div>
                         <span className="text-sm font-semibold text-red-400">내가 작성한 코드</span>
-                        <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-gray-300 overflow-x-auto">
+                        <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap">
                           {w.userCode || "(코드 없음)"}
                         </pre>
                       </div>
                       <div>
                         <span className="text-sm font-semibold text-green-400">정답 코드</span>
-                        <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-gray-300 overflow-x-auto">
+                        <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap">
                           {w.answerCode}
                         </pre>
                       </div>
