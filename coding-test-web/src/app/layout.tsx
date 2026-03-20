@@ -33,7 +33,13 @@ export default function RootLayout({
             <Link href="/" className="text-3xl font-bold">
               Coding Test
             </Link>
-            <nav>
+            <nav className="flex items-center gap-4">
+              <Link
+                href="/quiz"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-500 transition-colors"
+              >
+                Quiz
+              </Link>
               <Link
                 href="/problems/new"
                 className="text-white text-sm font-medium hover:text-gray-300 transition-colors"

@@ -115,14 +115,55 @@ const testCasesByTitle = {
     test_cases: [
       {
         input: `import heapq
+import inspect as __insp
 graph = {
     'A': [(1, 'B'), (4, 'C')],
     'B': [(2, 'C'), (5, 'D')],
     'C': [(1, 'D')],
     'D': []
 }
-print(dijkstra(graph, 'A', 'D', 4))`,
+__sig = __insp.signature(dijkstra)
+__n = len(__sig.parameters)
+if __n >= 4:
+    __res = dijkstra(graph, 'A', 'D', 4)
+elif __n == 3:
+    __res = dijkstra(graph, 'A', 'D')
+elif __n == 2:
+    __res = dijkstra(graph, 'A')
+else:
+    __res = dijkstra(graph)
+if isinstance(__res, dict):
+    __res = __res.get('D', __res)
+if isinstance(__res, tuple):
+    __res = __res[0] if isinstance(__res[0], (int, float)) else __res
+print(__res)`,
         expected: "4",
+      },
+      {
+        input: `import heapq
+import inspect as __insp
+graph2 = {
+    'A': [(2, 'B'), (6, 'C')],
+    'B': [(3, 'C'), (1, 'D')],
+    'C': [(1, 'D')],
+    'D': []
+}
+__sig = __insp.signature(dijkstra)
+__n = len(__sig.parameters)
+if __n >= 4:
+    __res = dijkstra(graph2, 'A', 'D', 4)
+elif __n == 3:
+    __res = dijkstra(graph2, 'A', 'D')
+elif __n == 2:
+    __res = dijkstra(graph2, 'A')
+else:
+    __res = dijkstra(graph2)
+if isinstance(__res, dict):
+    __res = __res.get('D', __res)
+if isinstance(__res, tuple):
+    __res = __res[0] if isinstance(__res[0], (int, float)) else __res
+print(__res)`,
+        expected: "3",
       },
     ],
   },

@@ -32,7 +32,6 @@ export default function CategoryStats({ problems, scores, solved }: CategoryStat
       <div className="flex items-center gap-4">
         <span className="text-sm font-semibold text-black">총 {totalProblems}문제</span>
         <span className="text-sm font-semibold text-green-600">{totalSolved}문제 통과</span>
-        <span className="text-sm font-semibold text-black">{totalAttempted}회 시도</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {entries.map(([category, { total, solved: solvedCount }]) => {
