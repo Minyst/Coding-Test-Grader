@@ -20,6 +20,8 @@ export default function ProblemDetailPage() {
   const [userCode, setUserCode] = useState("");
   const [result, setResult] = useState<(GradeResultType & { testResults: TestResult[] }) | null>(null);
   const [grading, setGrading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runOutput, setRunOutput] = useState<{ stdout: string; stderr: string; error: string | null; expected: string } | null>(null);
   const [pyodideReady, setPyodideReady] = useState(false);
   const [pyodideLoading, setPyodideLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,22 @@ export default function ProblemDetailPage() {
   useEffect(() => {
     if (problem) loadPyodide();
   }, [problem, loadPyodide]);
+
+  const handleRun = async () => {
+    if (!problem || !userCode.trim() || !problem.test_cases) return;
+    setRunning(true);
+    setRunOutput(null);
+    try {
+      if (!pyodideReady) await loadPyodide();
+      const { dryRunTestCase } = await import("@/lib/test-runner");
+      const output = await dryRunTestCase(userCode, problem.test_cases, 0);
+      setRunOutput(output);
+    } catch {
+      setRunOutput({ stdout: "", stderr: "", error: "실행 중 오류가 발생했습니다.", expected: "" });
+    } finally {
+      setRunning(false);
+    }
+  };
 
   const handleGrade = async () => {
     if (!problem || !userCode.trim()) return;
@@ -204,13 +222,62 @@ export default function ProblemDetailPage() {
               placeholder="여기에 코드를 작성하고 채점하기를 누르세요..."
             />
           </div>
-          <button
-            onClick={handleGrade}
-            disabled={grading || !userCode.trim() || !problem.test_cases}
-            className="w-full rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {grading ? "채점 중..." : "채점하기"}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleRun}
+              disabled={running || grading || !userCode.trim() || !problem.test_cases}
+              className="flex-1 rounded-xl bg-gray-800 border border-gray-600 py-4 text-lg font-bold text-white transition-all hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {running ? "실행 중..." : "코드 실행"}
+            </button>
+            <button
+              onClick={handleGrade}
+              disabled={grading || running || !userCode.trim() || !problem.test_cases}
+              className="flex-1 rounded-xl bg-black border border-gray-700 py-4 text-lg font-bold text-white transition-all hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {grading ? "채점 중..." : "채점하기"}
+            </button>
+          </div>
+
+          {/* 코드 실행 결과 */}
+          {runOutput && (
+            <div className="rounded-xl border border-gray-700 bg-gray-900 p-4 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300">실행 결과</h3>
+              {runOutput.error ? (
+                <pre className="rounded-lg bg-red-500/10 p-3 text-sm text-red-400 whitespace-pre-wrap break-all">
+                  {runOutput.error}
+                </pre>
+              ) : (
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs text-gray-500">내 출력</span>
+                    <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-gray-200 whitespace-pre-wrap break-all">
+                      {runOutput.stdout || "(출력 없음)"}
+                    </pre>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500">기대 출력</span>
+                    <pre className="mt-1 rounded-lg bg-black p-3 text-sm text-green-400 whitespace-pre-wrap break-all">
+                      {runOutput.expected || "(없음)"}
+                    </pre>
+                  </div>
+                  {runOutput.stdout.trim() === runOutput.expected.trim() ? (
+                    <p className="text-sm text-green-400 font-semibold">✅ 출력이 일치합니다</p>
+                  ) : (
+                    <p className="text-sm text-red-400 font-semibold">❌ 출력이 다릅니다</p>
+                  )}
+                </div>
+              )}
+              {runOutput.stderr && (
+                <div>
+                  <span className="text-xs text-gray-500">stderr</span>
+                  <pre className="mt-1 rounded-lg bg-yellow-500/10 p-3 text-sm text-yellow-400 whitespace-pre-wrap break-all">
+                    {runOutput.stderr}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         /* ── 채점 후: 블록 쌓기 레이아웃 ── */

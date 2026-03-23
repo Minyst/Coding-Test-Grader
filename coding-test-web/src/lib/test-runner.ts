@@ -226,3 +226,26 @@ export async function executeCode(
   // 실행 시에도 헬퍼 코드 포함 (TreeNode 등 사용 가능하도록)
   return runPython(`${PYTHON_HELPERS}\n${code}`, 10000);
 }
+
+/** 테스트 입력과 함께 코드 실행 (채점과 동일한 환경, 디버깅용) */
+export async function dryRunTestCase(
+  userCode: string,
+  config: TestCaseConfig,
+  testIndex: number = 0
+): Promise<{ stdout: string; stderr: string; error: string | null; expected: string; callCode: string }> {
+  const tc = config.test_cases[testIndex];
+  if (!tc) return { stdout: "", stderr: "", error: "테스트케이스가 없습니다", expected: "", callCode: "" };
+
+  let callCode: string;
+  if (config.call_type === "script") {
+    const processedInput = stripClassRedefinitions(tc.input);
+    callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${processedInput}`;
+  } else if (config.call_type === "class") {
+    callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${tc.input}`;
+  } else {
+    callCode = `${NAMESPACE_CLEANUP}\n${PYTHON_HELPERS}\n${userCode}\n${FIND_USER_FUNCTION}\n__fn = __find_user_function("${config.function_name}")\n__result = __fn(${tc.input})\nprint(__smart_repr(__result))`;
+  }
+
+  const result = await runPython(callCode, 10000);
+  return { ...result, expected: tc.expected.trim(), callCode };
+}
