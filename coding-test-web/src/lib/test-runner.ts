@@ -23,10 +23,11 @@ class TreeNode:
         self.right = right
 
 class ListNode:
-    def __init__(self, val=0, next=None):
+    def __init__(self, val=0, next=None, prev=None):
         self.val = val
         self.value = val
         self.next = next
+        self.prev = prev
 
 # 리스트 → 트리 변환
 def list_to_tree(arr):
