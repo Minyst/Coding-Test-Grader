@@ -32,8 +32,8 @@ export default function QuizPage() {
 
   // Quiz state
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [userCodes, setUserCodes] = useState<string[]>(["", "", ""]);
-  const [gradeResults, setGradeResults] = useState<((GradeResultType & { testResults: TestResult[] }) | null)[]>([null, null, null]);
+  const [userCodes, setUserCodes] = useState<string[]>(["", ""]);
+  const [gradeResults, setGradeResults] = useState<((GradeResultType & { testResults: TestResult[] }) | null)[]>([null, null]);
   const [grading, setGrading] = useState(false);
   const [quizFinished, setQuizFinished] = useState(false);
   const [pyodideReady, setPyodideReady] = useState(false);
@@ -61,11 +61,11 @@ export default function QuizPage() {
         if (existing) {
           setTodayDone(true);
           setTodayResult(existing);
-        } else if (all.length >= 3) {
+        } else if (all.length >= 2) {
           const shuffled = [...all].sort(() => Math.random() - 0.5);
-          setQuizProblems(shuffled.slice(0, 3));
+          setQuizProblems(shuffled.slice(0, 2));
         } else {
-          setQuizProblems(all.slice(0, 3));
+          setQuizProblems(all.slice(0, 2));
         }
 
         setLoading(false);
